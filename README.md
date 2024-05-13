@@ -4,7 +4,7 @@ This is a somewhat hideous combination of Macroquad and Speedy2D.
 
 When I decided to see if I could take my Speedy2D-based project and get it working with Miniquad, this repo is what happened.  All the code here came from either Speedy2D or Macroquad, but the authors of those packages should not be blamed for this.
 
-Why did I do this?  Because I was having a great experience with Speedy2D, but I wanted to see if I could port to Miniquad to gain its exception cross-platform support.
+Why did I do this?  Because I was having a great experience with Speedy2D, but I wanted to see if I could port to Miniquad to gain its exceptional cross-platform support.
 
 The following files came from Macroquad:
 
