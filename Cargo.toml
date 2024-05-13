@@ -1,0 +1,38 @@
+[package]
+name = "milliquad"
+version = "2.1.0"
+authors = ["QuantumBadger <speedy2d@redreader.org>"]
+edition = "2018"
+license = "Apache-2.0"
+readme = "README.md"
+description = """
+Hardware-accelerated drawing of shapes, images, and text, with an easy to use
+API. Speedy2D aims to be the simplest Rust API for creating a window, rendering graphics,
+and handling input.
+"""
+keywords = ["opengl", "gamedev", "graphics", "font"]
+categories = ["rendering::graphics-api", "game-development", "graphics"]
+repository = "https://github.com/QuantumBadger/Speedy2D"
+documentation = "https://docs.rs/speedy2d"
+
+[dependencies]
+slotmap = "1.0"
+glam = {version = "0.21", features = ["scalar-math"] }
+log = "0.4"
+backtrace = "0.3"
+fontdue = "0.7"
+num-traits = "0.2"
+earcutr = "0.2.0"
+smallvec = "1.9.0"
+
+# For image_loading feature
+image = { version = "0.24", default-features = false, features = ["png", "tga"] }
+
+[dependencies.miniquad]
+version = "0.4.0"
+features = ["log-impl"]
+
+[dev-dependencies]
+simple_logger = { version = "1.11", default-features = false, features = ["colors"] }
+image = { version = "0.23" }
+
