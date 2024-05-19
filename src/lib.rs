@@ -337,22 +337,6 @@ impl Graphics2D
         self.renderer.clear(Some((color.r(), color.g(), color.b(), color.a())), None, None);
     }
 
-    pub fn measure_text(
-        &mut self,
-        text: &str,
-        font: &crate::text::Font,
-        font_size: u16,
-        font_scale: f32,
-        ) -> crate::text::TextDimensions 
-    {
-        return font.measure_text(
-            text,
-            font_size,
-            font_scale,
-            font_scale,
-            );
-    }
-
     pub fn draw_text(
         &mut self,
         text: &str,

@@ -136,10 +136,13 @@ impl<UserEventType> WindowHelperQuad<UserEventType>
     #[inline]
     pub fn request_redraw(&self)
     {
-        #[cfg(target_arch = "wasm32")]
-        unsafe {crate::request_animation_frame(); }
+        if !self.redraw_requested.get()
+        {
+            #[cfg(target_arch = "wasm32")]
+            unsafe {crate::request_animation_frame(); }
 
-        self.redraw_requested.set(true);
+            self.redraw_requested.set(true);
+        }
     }
 
     pub fn set_title(&self, title: &str)
@@ -401,6 +404,7 @@ impl<UserEventType, HandlerType: WindowHandler<UserEventType>> miniquad::EventHa
     }
 
     fn update(&mut self) {
+        self.helper.inner().set_redraw_requested(false);
         self.handler.on_update(&mut self.helper);
         match self.user_events.try_recv()
         {

@@ -124,7 +124,17 @@ impl Font {
             .cloned()
     }
 
-    pub(crate) fn measure_text(
+    pub fn measure_text(
+        &self,
+        text: &str,
+        font_size: u16,
+        font_scale: f32,
+    ) -> TextDimensions 
+    {
+        return self.measure_text_ex(text, font_size, font_scale, font_scale);
+    }
+
+    pub fn measure_text_ex(
         &self,
         text: &str,
         font_size: u16,
@@ -350,6 +360,7 @@ pub fn draw_text_ex(
     }
 }
 
+/*
 /// Get the text center.
 pub fn get_text_center(
     text: &str,
@@ -365,6 +376,7 @@ pub fn get_text_center(
 
     crate::Vec2::new(x_center, y_center)
 }
+*/
 
 /// World space dimensions of the text, measured by "measure_text" function
 #[derive(Debug, Clone, Copy)]
@@ -379,6 +391,7 @@ pub struct TextDimensions {
     pub offset_y: f32,
 }
 
+/*
 pub fn measure_text(
     text: &str,
     font: &Font,
@@ -386,8 +399,9 @@ pub fn measure_text(
     font_scale: f32,
 ) -> TextDimensions 
 {
-    font.measure_text(text, font_size, font_scale, font_scale)
+    font.measure_text(text, font_size, font_scale)
 }
+*/
 
 /*
 pub(crate) struct FontsStorage {
