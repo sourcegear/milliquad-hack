@@ -21,8 +21,48 @@ use {
     std::io::{BufRead, Seek},
 };
 
+use quad_gl::{color::*, math::*, sprite_batcher::SpriteBatcher, Context3};
+use std::sync::{Arc, Mutex};
+
 //pub mod log { pub use miniquad::{debug, error, info, trace, warn}; }
 pub use ::log as log;
+
+pub mod text
+{
+    pub use quad_gl::text::Font;
+    pub use quad_gl::text::TextDimensions;
+
+    // TODO in my fork, TextParams no longer includes Font or font_size.
+    // I've got code here to translate things.
+
+    #[derive(Debug, Clone)]
+    pub struct TextParams
+    {
+        /// The glyphs sizes actually drawn on the screen will be font_size * font_scale
+        /// However with font_scale too different from 1.0 letters may be blurry
+        pub font_scale: f32,
+        /// Font X axis would be scaled by font_scale * font_scale_aspect
+        /// and Y axis would be scaled by font_scale
+        /// Default is 1.0
+        pub font_scale_aspect: f32,
+        /// Text rotation in radian
+        /// Default is 0.0
+        pub rotation: f32,
+        pub color: crate::color::Color,
+    }
+
+    impl Default for TextParams {
+        fn default() -> TextParams {
+            TextParams {
+                font_scale: 1.0,
+                font_scale_aspect: 1.0,
+                color: crate::color::Color::BLACK,
+                rotation: 0.0,
+            }
+        }
+    }
+
+}
 
 use crate::color::Color;
 use crate::dimen::{UVec2, Vec2};
@@ -40,10 +80,6 @@ use crate::window::{
 use crate::window_internal_quad::WindowQuad;
 
 pub mod math;
-pub mod text;
-mod shapes;
-mod quad_gl;
-mod texture;
 
 /// Types representing colors.
 pub mod color;
@@ -78,8 +114,6 @@ mod window_internal_doctest;
 extern "C" {
     pub fn request_animation_frame();
 }
-
-use quad_gl::QuadGl;
 
 /// An error encountered during the creation of a [GLRenderer].
 #[derive(Clone, Debug)]
@@ -129,7 +163,7 @@ impl Display for GLRendererCreationError
 /// a window for you.
 pub struct GLRenderer
 {
-    renderer: Graphics2D
+    ctx: Context3
 }
 
 impl GLRenderer
@@ -137,24 +171,17 @@ impl GLRenderer
     pub fn new_for_quad(
         ) -> Self
     {
-        let mut ctx: Box<dyn miniquad::RenderingBackend> =
-            miniquad::window::new_rendering_backend();
+        let ctx = miniquad::window::new_rendering_backend();
+        let ctx = Arc::new(Mutex::new(ctx));
 
-        let gl = QuadGl::new(&mut *ctx);
-        let texture_batcher = crate::texture::Batcher::new(&mut *ctx);
-        let renderer = Graphics2D {
-            renderer: ctx,
-            gl:  gl,
-            textures: crate::texture::TexturesContext::new(),
-            texture_batcher: texture_batcher,
-        };
+        let ctx = Context3::new(ctx.clone());
 
-        GLRenderer { renderer }
+        GLRenderer { ctx }
     }
 
-    pub fn create_font_from_bytes(&mut self, bytes: &[u8]) -> Result<crate::text::Font, i32>
+    pub fn create_font_from_bytes(&mut self, bytes: &[u8]) -> Result<quad_gl::text::Font, i32>
     {
-        let f = text::load_ttf_font_from_bytes(&mut *self.renderer.renderer, bytes).unwrap();
+        let f = self.ctx.load_ttf_font_from_bytes(bytes).unwrap();
         Ok(f)
     }
 
@@ -165,6 +192,7 @@ impl GLRenderer
         //panic!();
     }
 
+    /*
     /// Creates a new [ImageHandle] from the specified raw pixel data.
     ///
     /// The data provided in the `data` parameter must be in the format
@@ -180,9 +208,10 @@ impl GLRenderer
         data: &[u8]
     ) -> Result<ImageHandle, BacktraceError<ErrorMessage>>
     {
-        self.renderer
+        self.canvas
             .create_image_from_raw_pixels(data_type, smoothing_mode, size, data)
     }
+*/
 
     /// Loads an image from the provided encoded image file data.
     ///
@@ -216,6 +245,7 @@ impl GLRenderer
     ///
     /// The returned [ImageHandle] is valid only for the current graphics
     /// context.
+    /*
     pub fn create_image_from_file_bytes<R: Seek + BufRead>(
         &mut self,
         data_type: Option<ImageFileFormat>,
@@ -226,6 +256,7 @@ impl GLRenderer
         self.renderer
             .create_image_from_file_bytes(data_type, smoothing_mode, file_bytes)
     }
+*/
 
     /// Starts the process of drawing a frame. A `Graphics2D` object will be
     /// provided to the callback. When the callback returns, the internal
@@ -237,9 +268,10 @@ impl GLRenderer
     pub fn draw_frame<F: FnOnce(&mut Graphics2D) -> R, R>(&mut self, callback: F) -> R
     {
         //self.renderer.set_clip(None);
-        self.renderer.begin_frame();
-        let result = callback(&mut self.renderer);
-        self.renderer.end_frame();
+        let mut g = Graphics2D { ctx: self.ctx.clone(), canvas: self.ctx.new_canvas() };
+        g.begin_frame();
+        let result = callback(&mut g);
+        g.end_frame();
         result
     }
 }
@@ -261,10 +293,8 @@ impl Drop for GLRenderer
 /// [GLRenderer::draw_frame] to obtain an instance.
 pub struct Graphics2D
 {
-    renderer: Box<dyn miniquad::RenderingBackend>,
-    gl: QuadGl,
-    textures: crate::texture::TexturesContext,
-    texture_batcher: crate::texture::Batcher,
+    ctx: Context3,
+    canvas: SpriteBatcher,
 }
 
 impl Graphics2D
@@ -334,7 +364,7 @@ impl Graphics2D
     /// Fills the screen with the specified color.
     pub fn clear_screen(&mut self, color: Color)
     {
-        self.renderer.clear(Some((color.r(), color.g(), color.b(), color.a())), None, None);
+        self.ctx.quad_ctx.lock().unwrap().clear(Some((color.r(), color.g(), color.b(), color.a())), None, None);
     }
 
     pub fn draw_text(
@@ -342,22 +372,28 @@ impl Graphics2D
         text: &str,
         x: f32,
         y: f32,
-        font: &crate::text::Font,
+        font: &quad_gl::text::Font,
         font_size: u16,
         parms: crate::text::TextParams
     )
     {
-        crate::text::draw_text_ex(
-            &mut self.gl,
-            &mut *self.renderer,
-            &self.textures,
-            &mut self.texture_batcher,
+        // translate TextParams to what quad_gl wants
+        let p = quad_gl::text::TextParams
+        {
+            font: Some(font),
+            font_size: font_size,
+            font_scale: parms.font_scale,
+            font_scale_aspect: parms.font_scale_aspect,
+            rotation: parms.rotation,
+            color: parms.color.to_quad(),
+        };
+
+        quad_gl::text::draw_text_ex(
+            &mut self.canvas,
             text,
             x,
             y,
-            font,
-            font_size,
-            parms
+            p
             );
     }
 
@@ -418,12 +454,11 @@ impl Graphics2D
     pub fn draw_triangle(&mut self, vertex_positions_clockwise: [Vec2; 3], color: Color)
     {
         //self.draw_triangle_three_color(vertex_positions_clockwise, [color, color, color]);
-        shapes::draw_triangle(
-            &mut self.gl, 
-            glam::Vec2::new(vertex_positions_clockwise[0].x, vertex_positions_clockwise[0].y),
-            glam::Vec2::new(vertex_positions_clockwise[1].x, vertex_positions_clockwise[1].y),
-            glam::Vec2::new(vertex_positions_clockwise[2].x, vertex_positions_clockwise[2].y),
-            color);
+        self.canvas.draw_triangle(
+            quad_gl::math::Vec2::new(vertex_positions_clockwise[0].x, vertex_positions_clockwise[0].y),
+            quad_gl::math::Vec2::new(vertex_positions_clockwise[1].x, vertex_positions_clockwise[1].y),
+            quad_gl::math::Vec2::new(vertex_positions_clockwise[2].x, vertex_positions_clockwise[2].y),
+            color.to_quad());
     }
 
     /// Draws a quadrilateral with the specified colors (one color for each
@@ -609,7 +644,7 @@ impl Graphics2D
         );
         */
         //log::info!("rect: {:?} {:?}", rect, color);
-        shapes::draw_rectangle(&mut self.gl, rect.left(), rect.top(), rect.width(), rect.height(), color);
+        self.canvas.draw_rectangle(rect.left(), rect.top(), rect.width(), rect.height(), color.to_quad());
     }
 
     /// Draws a single-color rounded rectangle at the specified location. The
@@ -622,15 +657,14 @@ impl Graphics2D
     )
     {
         let round_rect = round_rect.as_ref();
-        shapes::draw_rectangle_ex2(
-            &mut self.gl,
+        self.canvas.draw_rectangle_ex2(
             round_rect.left(),
             round_rect.top(),
             round_rect.width(),
             round_rect.height(),
-            &shapes::DrawRectangleParams2
+            &quad_gl::rounded_rect::DrawRectangleParams2
             {
-                color: color,
+                color: color.to_quad(),
                 border_radius: round_rect.radius(),
                  border_radius_segments: 20,
                 ..Default::default()
@@ -783,21 +817,23 @@ impl Graphics2D
     }
 
     fn begin_frame(&mut self) {
-        self.gl.reset();
+        self.canvas.reset();
     }
 
-    pub(crate) fn pixel_perfect_projection_matrix(&self) -> glam::Mat4 {
+    pub(crate) fn pixel_perfect_projection_matrix(&self) -> quad_gl::math::Mat4 {
         let (width, height) = miniquad::window::screen_size();
         let dpi = miniquad::window::dpi_scale();
 
-        glam::Mat4::orthographic_rh_gl(0., width / dpi, height / dpi, 0., -1., 1.)
+        quad_gl::math::Mat4::orthographic_rh_gl(0., width / dpi, height / dpi, 0., -1., 1.)
     }
 
     fn end_frame(&mut self) {
         let screen_mat = self.pixel_perfect_projection_matrix();
-        self.gl.draw(&mut *self.renderer, screen_mat);
+        //self.gl.draw(&mut *self.renderer, screen_mat);
+        self.canvas.draw3(screen_mat);
 
-        self.renderer.commit_frame();
+        // TODO do we need this?
+        self.ctx.quad_ctx.lock().unwrap().commit_frame();
     }
 
 }

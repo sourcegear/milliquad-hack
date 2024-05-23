@@ -207,6 +207,11 @@ impl Color
     {
         self.r * 0.299 + self.g * 0.587 + self.b * 0.114
     }
+
+    pub fn to_quad(&self) -> quad_gl::color::Color
+    {
+        quad_gl::color::Color::new(self.r, self.g, self.b, self.a)
+    }
 }
 
 impl From<[u8; 4]> for Color

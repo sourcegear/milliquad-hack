@@ -75,7 +75,7 @@ impl<UserEventType> WindowHelperQuad<UserEventType>
     }
 
     #[must_use]
-    pub fn create_font_from_bytes(&self, bytes: &[u8]) -> Result<crate::text::Font,i32>
+    pub fn create_font_from_bytes(&self, bytes: &[u8]) -> Result<quad_gl::text::Font,i32>
     {
         self.renderer.borrow_mut().create_font_from_bytes(bytes)
     }

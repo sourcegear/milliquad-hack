@@ -558,7 +558,7 @@ impl<UserEventType> WindowHelper<UserEventType>
         self.inner.terminate_loop()
     }
 
-    pub fn create_font_from_bytes(&self, bytes: &[u8]) -> Result<crate::text::Font, i32>
+    pub fn create_font_from_bytes(&self, bytes: &[u8]) -> Result<quad_gl::text::Font, i32>
     {
         self.inner.create_font_from_bytes(bytes)
     }
