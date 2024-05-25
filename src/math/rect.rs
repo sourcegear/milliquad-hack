@@ -56,6 +56,16 @@ impl Rect {
         self.y + self.h
     }
 
+    /// Returns the width of the `Rect`
+    pub fn width(&self) -> f32 {
+        self.w
+    }
+
+    /// Returns the height of the `Rect`
+    pub fn height(&self) -> f32 {
+        self.h
+    }
+
     /// Moves the `Rect`'s origin to (x, y)
     pub fn move_to(&mut self, destination: Vec2) {
         self.x = destination.x;

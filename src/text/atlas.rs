@@ -1,6 +1,6 @@
 use crate::{
     math::Rect,
-    texture::{Image, Texture2D},
+    texture::{Image, },
     Color,
 };
 
@@ -45,7 +45,7 @@ impl Atlas {
     const UNIQUENESS_OFFSET: u64 = 100000;
 
     pub fn new(ctx: &mut dyn miniquad::RenderingBackend, filter: miniquad::FilterMode) -> Atlas {
-        let image = Image::gen_image_color(512, 512, Color::from_rgba(0.0, 0.0, 0.0, 0.0));
+        let image = Image::gen_image_color(512, 512, Color::new(0.0, 0.0, 0.0, 0.0));
         let texture = ctx.new_texture_from_rgba8(image.width, image.height, &image.bytes);
         ctx.texture_set_filter(
             texture,
@@ -155,7 +155,7 @@ impl Atlas {
             self.image = Image::gen_image_color(
                 self.image.width * 2,
                 self.image.height * 2,
-                Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+                Color::new(0.0, 0.0, 0.0, 0.0),
             );
 
             // recache all previously cached symbols

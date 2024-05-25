@@ -5,8 +5,7 @@ use std::collections::HashMap;
 use crate::{
     Color,
     math::{vec3, Rect},
-    texture::{Image, TextureHandle, Batcher, TexturesContext},
-    //Error,
+    texture::{Image, TextureHandle, Batcher, },
 };
 use crate::quad_gl::QuadGl;
 
@@ -33,11 +32,6 @@ pub struct Font {
     characters: Arc<Mutex<HashMap<(char, u16), CharacterInfo>>>,
 }
 
-fn require_fn_to_be_send() {
-    fn require_send<T: Send>() {}
-    require_send::<Font>();
-}
-
 impl std::fmt::Debug for Font {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Font")
@@ -47,22 +41,22 @@ impl std::fmt::Debug for Font {
 }
 
 impl Font {
-    pub(crate) fn load_from_bytes(atlas: Arc<Mutex<Atlas>>, bytes: &[u8]) -> Result<Font, i32> {
+    pub(crate) fn load_from_bytes(atlas: Arc<Mutex<Atlas>>, bytes: &[u8]) -> Result<Font, &'static str> {
         Ok(Font {
             font: Arc::new(fontdue::Font::from_bytes(
                 &bytes[..],
                 fontdue::FontSettings::default(),
-            ).map_err(|x| -1)?),
+            )?),
             characters: Arc::new(Mutex::new(HashMap::new())),
             atlas,
         })
     }
 
-    pub(crate) fn ascent(&self, font_size: f32) -> f32 {
+    pub fn ascent(&self, font_size: f32) -> f32 {
         self.font.horizontal_line_metrics(font_size).unwrap().ascent
     }
 
-    pub(crate) fn descent(&self, font_size: f32) -> f32 {
+    pub fn descent(&self, font_size: f32) -> f32 {
         self.font
             .horizontal_line_metrics(font_size)
             .unwrap()
@@ -116,14 +110,6 @@ impl Font {
             .insert((character, size), character_info);
     }
 
-    pub(crate) fn get(&self, character: char, size: u16) -> Option<CharacterInfo> {
-        self.characters
-            .lock()
-            .unwrap()
-            .get(&(character, size))
-            .cloned()
-    }
-
     pub fn measure_text(
         &self,
         text: &str,
@@ -134,7 +120,7 @@ impl Font {
         return self.measure_text_ex(text, font_size, font_scale, font_scale);
     }
 
-    pub fn measure_text_ex(
+    pub(crate) fn measure_text_ex(
         &self,
         text: &str,
         font_size: u16,
@@ -189,18 +175,12 @@ impl Font {
 
 impl Font {
     /// List of ascii characters, may be helpful in combination with "populate_font_cache"
-    pub fn ascii_character_list() -> Vec<char> {
+    pub(crate) fn ascii_character_list() -> Vec<char> {
+        // TODO really?  all of 0 through 255 ?
         (0..255).filter_map(::std::char::from_u32).collect()
     }
 
-    /// List of latin characters
-    pub fn latin_character_list() -> Vec<char> {
-        "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890!@#$%^&*(){}[].,:"
-            .chars()
-            .collect()
-    }
-
-    pub fn populate_font_cache(&self, characters: &[char], size: u16) {
+    pub(crate) fn populate_font_cache(&self, characters: &[char], size: u16) {
         for character in characters {
             self.cache_glyph(*character, size);
         }
@@ -223,11 +203,6 @@ impl Font {
         self.atlas.lock().unwrap().set_filter(ctx, filter_mode);
     }
 
-    // pub fn texture(&self) -> Texture2D {
-    //     let font = get_context().fonts_storage.get_font(*self);
-
-    //     font.font_texture
-    // }
 }
 
 /// Arguments for "draw_text_ex" function such as font, font_size etc
@@ -252,7 +227,7 @@ impl Default for TextParams {
         TextParams {
             font_scale: 1.0,
             font_scale_aspect: 1.0,
-            color: Color::BLACK,
+            color: crate::color::colors::BLACK,
             rotation: 0.0,
         }
     }
@@ -262,17 +237,17 @@ impl Default for TextParams {
 /// ```ignore
 /// let font = load_ttf_font_from_bytes(include_bytes!("font.ttf"));
 /// ```
-pub fn load_ttf_font_from_bytes(
+pub(crate) fn load_ttf_font_from_bytes(
     quad_context: &mut dyn miniquad::RenderingBackend,
     bytes: &[u8]
-    ) -> Result<Font, i32> 
+    ) -> Result<Font, &'static str> 
 {
     let atlas = Arc::new(Mutex::new(Atlas::new(
         quad_context,
         miniquad::FilterMode::Linear,
     )));
 
-    let mut font = Font::load_from_bytes(atlas.clone(), bytes)?;
+    let font = Font::load_from_bytes(atlas.clone(), bytes)?;
 
     font.populate_font_cache(&Font::ascii_character_list(), 15);
 
@@ -280,10 +255,9 @@ pub fn load_ttf_font_from_bytes(
 }
 
 /// Draw text with custom params such as font, font size and font scale.
-pub fn draw_text_ex(
+pub(crate) fn draw_text_ex(
     gl: &mut QuadGl, 
     quad_context: &mut dyn miniquad::RenderingBackend,
-    textures: &TexturesContext, 
     texture_batcher: &mut Batcher,
     text: &str, 
     x: f32, 
@@ -343,7 +317,6 @@ pub fn draw_text_ex(
         crate::texture::draw_texture_ex(
             gl,
             quad_context,
-            textures,
             texture_batcher,
             &t,
             dest.x,
@@ -360,24 +333,6 @@ pub fn draw_text_ex(
     }
 }
 
-/*
-/// Get the text center.
-pub fn get_text_center(
-    text: &str,
-    font: &Font,
-    font_size: u16,
-    font_scale: f32,
-    rotation: f32,
-) -> crate::Vec2 {
-    let measure = measure_text(text, font, font_size, font_scale);
-
-    let x_center = measure.width / 2.0 * rotation.cos() + measure.height / 2.0 * rotation.sin();
-    let y_center = measure.width / 2.0 * rotation.sin() - measure.height / 2.0 * rotation.cos();
-
-    crate::Vec2::new(x_center, y_center)
-}
-*/
-
 /// World space dimensions of the text, measured by "measure_text" function
 #[derive(Debug, Clone, Copy)]
 pub struct TextDimensions {
@@ -390,33 +345,6 @@ pub struct TextDimensions {
     /// For reference check "text_dimensions" example.
     pub offset_y: f32,
 }
-
-/*
-pub fn measure_text(
-    text: &str,
-    font: &Font,
-    font_size: u16,
-    font_scale: f32,
-) -> TextDimensions 
-{
-    font.measure_text(text, font_size, font_scale)
-}
-*/
-
-/*
-pub(crate) struct FontsStorage {
-    default_font: Font,
-}
-
-impl FontsStorage {
-    pub(crate) fn new(ctx: &mut dyn miniquad::RenderingBackend) -> FontsStorage {
-        let atlas = Arc::new(Mutex::new(Atlas::new(ctx, miniquad::FilterMode::Linear)));
-
-        let default_font = Font::load_from_bytes(atlas, include_bytes!("ProggyClean.ttf")).unwrap();
-        FontsStorage { default_font }
-    }
-}
-*/
 
 /// From given font size in world space gives
 /// (font_size, font_scale and font_aspect) params to make rasterized font
